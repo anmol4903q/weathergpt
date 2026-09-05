@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WeatherGPT — Assistant</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            canvas: "#FAF9F4",
+            "soft-blue-50": "#F0F9FF",
+            "soft-blue": "#E0F2FE",
+            accent: "#0284C7",
+            "accent-dark": "#0369A1",
+            sand: "#FAF5E6",
+            primary: "#1E293B",
+            muted: "#64748B"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            display: ["Plus Jakarta Sans", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-canvas text-primary font-sans antialiased h-screen flex flex-col justify-between overflow-hidden">
+
+  <!-- Header -->
+  <header class="w-full max-w-4xl mx-auto px-6 py-5 flex items-center justify-between shrink-0">
+    <a href="index.html" class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-accent inline-block"></span>
+      <span class="font-display font-bold text-lg tracking-tight text-primary">WeatherGPT</span>
+    </a>
+
+    <nav class="hidden sm:flex items-center gap-6">
+      <a href="index.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Home</a>
+      <a href="assistant.html" class="text-sm font-medium text-accent">Assistant</a>
+      <a href="map.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Map</a>
+      <a href="insights.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Insights</a>
+    </nav>
+
+    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-soft-blue text-xs font-medium text-accent">
+      <span class="material-symbols-outlined text-[15px]">location_on</span>
+      <span>Lucknow, UP</span>
+    </div>
+  </header>
+
+  <!-- Chat Container -->
+  <main class="w-full max-w-2xl mx-auto flex-1 flex flex-col justify-between overflow-hidden px-6 pb-6">
+    
+    <!-- Feed -->
+    <div id="chat-stream" class="flex-1 overflow-y-auto py-4 space-y-6 pr-1 scroll-smooth">
+      
+      <!-- Welcome Assistant Message -->
+      <div class="flex flex-col items-start space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-soft-blue text-accent flex items-center justify-center text-xs font-semibold">W</span>
+          <span class="text-xs font-medium text-muted">WeatherGPT</span>
+        </div>
+        <div class="bg-white border border-soft-blue rounded-2xl rounded-tl-sm p-4 text-sm leading-relaxed text-primary shadow-[0_2px_12px_rgba(2,132,199,0.03)]">
+          Lucknow is currently at <strong>31°C</strong> with calm conditions. Convective moisture is building over the Awadh plains. How can I assist with your schedule or travel?
+        </div>
+      </div>
+
+      <!-- Sample User Bubble -->
+      <div class="flex flex-col items-end space-y-1">
+        <div class="bg-accent text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm max-w-[80%] shadow-sm">
+          Will it rain tomorrow evening in Lucknow?
+        </div>
+        <span class="text-[10px] text-muted pr-1">6:42 PM</span>
+      </div>
+
+      <!-- Sample Telemetric Response -->
+      <div class="flex flex-col items-start space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-soft-blue text-accent flex items-center justify-center text-xs font-semibold">W</span>
+          <span class="text-xs font-medium text-muted">WeatherGPT</span>
+        </div>
+        <div class="bg-white border border-soft-blue rounded-2xl rounded-tl-sm p-4 text-sm leading-relaxed text-primary shadow-[0_2px_12px_rgba(2,132,199,0.03)] space-y-3">
+          <p>Yes. Heavy convective rainfall is expected between <strong>6:00 PM and 9:00 PM IST</strong> tomorrow, with a 70% probability.</p>
+          <div class="p-3 bg-soft-blue-50 rounded-xl flex items-center justify-between text-xs text-accent font-medium">
+            <span>Peak window: 7:30 PM</span>
+            <span class="font-semibold">Accumulation: ~12 mm</span>
+          </div>
+          <p class="text-xs text-muted">Water accumulation is probable along Kanpur Road underpasses. Plan transit prior to 5:30 PM.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Pinned Input Section -->
+    <div class="w-full space-y-3 pt-2">
+      <div class="flex items-center justify-center gap-2 overflow-x-auto py-1">
+        <button onclick="fillChat(this)" class="px-3 py-1 rounded-full bg-soft-blue text-xs text-accent hover:bg-soft-blue-50 transition-colors whitespace-nowrap">
+          Should I spray crops tomorrow?
+        </button>
+        <button onclick="fillChat(this)" class="px-3 py-1 rounded-full bg-soft-blue text-xs text-accent hover:bg-soft-blue-50 transition-colors whitespace-nowrap">
+          Is Kanpur Road safe tonight?
+        </button>
+      </div>
+
+      <form id="chat-form" class="relative flex items-center w-full bg-white rounded-2xl border border-soft-blue shadow-[0_4px_20px_rgba(2,132,199,0.05)] focus-within:border-accent transition-all p-1.5">
+        <input 
+          id="chat-input" 
+          type="text" 
+          placeholder="Ask a question..." 
+          class="w-full pl-4 pr-20 py-2.5 bg-transparent text-sm text-primary placeholder:text-muted outline-none"
+        />
+        <div class="absolute right-2 flex items-center gap-1.5">
+          <button type="button" aria-label="Audio" class="w-8 h-8 rounded-xl flex items-center justify-center text-muted hover:text-accent hover:bg-soft-blue-50 transition-colors">
+            <span class="material-symbols-outlined text-[19px]">mic</span>
+          </button>
+          <button type="submit" aria-label="Send" class="w-8 h-8 rounded-xl bg-accent text-white flex items-center justify-center hover:bg-accent-dark transition-colors">
+            <span class="material-symbols-outlined text-[17px]">arrow_upward</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </main>
+
+  <script>
+    const stream = document.getElementById('chat-stream');
+    const input = document.getElementById('chat-input');
+    const form = document.getElementById('chat-form');
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const query = urlParams.get('q');
+      if (query) {
+        postUserMessage(query);
+      }
+    });
+
+    function fillChat(btn) {
+      input.value = btn.innerText.trim();
+      input.focus();
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = input.value.trim();
+      if (!val) return;
+      postUserMessage(val);
+      input.value = '';
+    });
+
+    function postUserMessage(text) {
+      const userEl = document.createElement('div');
+      userEl.className = 'flex flex-col items-end space-y-1';
+      userEl.innerHTML = `
+        <div class="bg-accent text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm max-w-[80%] shadow-sm">
+          ${escapeHtml(text)}
+        </div>
+        <span class="text-[10px] text-muted pr-1">Just now</span>
+      `;
+      stream.appendChild(userEl);
+      stream.scrollTop = stream.scrollHeight;
+
+      setTimeout(() => {
+        const botEl = document.createElement('div');
+        botEl.className = 'flex flex-col items-start space-y-2';
+        botEl.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-soft-blue text-accent flex items-center justify-center text-xs font-semibold">W</span>
+            <span class="text-xs font-medium text-muted">WeatherGPT</span>
+          </div>
+          <div class="bg-white border border-soft-blue rounded-2xl rounded-tl-sm p-4 text-sm leading-relaxed text-primary shadow-[0_2px_12px_rgba(2,132,199,0.03)]">
+            Atmospheric moisture across Central UP is at 72%. Regarding "<strong>${escapeHtml(text)}</strong>", local convective activity will intensify after 5:00 PM.
+          </div>
+        `;
+        stream.appendChild(botEl);
+        stream.scrollTop = stream.scrollHeight;
+      }, 500);
+    }
+
+    function escapeHtml(str) {
+      const p = document.createElement('p');
+      p.appendChild(document.createTextNode(str));
+      return p.innerHTML;
+    }
+  </script>
+</body>
+</html>

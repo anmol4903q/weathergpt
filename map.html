@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WeatherGPT — Map</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+
+  <!-- Real Leaflet Tiles -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            canvas: "#FAF9F4",
+            "soft-blue-50": "#F0F9FF",
+            "soft-blue": "#E0F2FE",
+            accent: "#0284C7",
+            "accent-dark": "#0369A1",
+            sand: "#FAF5E6",
+            primary: "#1E293B",
+            muted: "#64748B"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            display: ["Plus Jakarta Sans", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-canvas text-primary font-sans antialiased h-screen flex flex-col overflow-hidden">
+
+  <!-- Header -->
+  <header class="w-full max-w-5xl mx-auto px-6 py-5 flex items-center justify-between shrink-0 z-20">
+    <a href="index.html" class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-accent inline-block"></span>
+      <span class="font-display font-bold text-lg tracking-tight text-primary">WeatherGPT</span>
+    </a>
+
+    <nav class="hidden sm:flex items-center gap-6">
+      <a href="index.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Home</a>
+      <a href="assistant.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Assistant</a>
+      <a href="map.html" class="text-sm font-medium text-accent">Map</a>
+      <a href="insights.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Insights</a>
+    </nav>
+
+    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-soft-blue text-xs font-medium text-accent">
+      <span class="material-symbols-outlined text-[15px]">location_on</span>
+      <span>Lucknow, UP</span>
+    </div>
+  </header>
+
+  <!-- Clean Full Map Surface -->
+  <main class="flex-1 relative w-full overflow-hidden">
+    
+    <div id="real-map" class="w-full h-full z-0"></div>
+
+    <!-- Centered Search Capsule -->
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-full max-w-md px-4">
+      <div class="flex items-center bg-white/95 backdrop-blur rounded-2xl border border-soft-blue shadow-[0_4px_20px_rgba(2,132,199,0.06)] px-4 py-2.5">
+        <span class="material-symbols-outlined text-[18px] text-accent mr-2">search</span>
+        <input 
+          type="text" 
+          placeholder="Search location..." 
+          value="Lucknow, Uttar Pradesh"
+          class="bg-transparent text-xs text-primary outline-none w-full placeholder:text-muted"
+        />
+        <span class="text-[11px] font-medium text-accent bg-soft-blue px-2 py-0.5 rounded-full">31°C</span>
+      </div>
+    </div>
+
+    <!-- Minimal Layer Pills -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
+      <div class="bg-white/95 backdrop-blur px-2 py-1.5 rounded-full border border-soft-blue shadow-[0_4px_20px_rgba(2,132,199,0.06)] flex items-center gap-1">
+        <button class="px-3.5 py-1 rounded-full text-xs font-medium bg-accent text-white shadow-sm">
+          Rainfall
+        </button>
+        <button class="px-3.5 py-1 rounded-full text-xs font-medium text-muted hover:text-primary transition-colors">
+          Wind
+        </button>
+        <button class="px-3.5 py-1 rounded-full text-xs font-medium text-muted hover:text-primary transition-colors">
+          Clouds
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const map = L.map('real-map', {
+      zoomControl: false
+    }).setView([26.8467, 80.9462], 10);
+
+    // Warm, muted CartoDB Positron tiles matching #FAF9F4
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 18
+    }).addTo(map);
+
+    const customIcon = L.divIcon({
+      className: 'custom-pin',
+      html: `
+        <div style="background-color: #0284C7; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 2px 8px rgba(2,132,199,0.4);"></div>
+      `,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
+    });
+
+    L.marker([26.8467, 80.9462], { icon: customIcon })
+      .addTo(map)
+      .bindPopup('<b>Lucknow Observatory</b><br>31°C · Convective showers at 6 PM')
+      .openPopup();
+  </script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WeatherGPT</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            canvas: "#FAF9F4",
+            "soft-blue-50": "#F0F9FF",
+            "soft-blue": "#E0F2FE",
+            accent: "#0284C7",
+            "accent-dark": "#0369A1",
+            sand: "#FAF5E6",
+            primary: "#1E293B",
+            muted: "#64748B"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            display: ["Plus Jakarta Sans", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-canvas text-primary font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-soft-blue selection:text-accent">
+
+  <!-- Header -->
+  <header class="w-full max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-accent inline-block"></span>
+      <span class="font-display font-bold text-lg tracking-tight text-primary">WeatherGPT</span>
+    </a>
+
+    <nav class="hidden sm:flex items-center gap-6">
+      <a href="index.html" class="text-sm font-medium text-accent">Home</a>
+      <a href="assistant.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Assistant</a>
+      <a href="map.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Map</a>
+      <a href="insights.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Insights</a>
+    </nav>
+
+    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-soft-blue text-xs font-medium text-accent">
+      <span class="material-symbols-outlined text-[15px]">location_on</span>
+      <span>Lucknow, UP</span>
+    </div>
+  </header>
+
+  <!-- Central Vertical Flow -->
+  <main class="w-full max-w-2xl mx-auto px-6 py-6 md:py-10 flex flex-col items-center text-center space-y-10">
+
+    <!-- Hero Metric -->
+    <section class="flex flex-col items-center space-y-1">
+      <span class="text-sm font-medium text-muted tracking-wide">Lucknow, Uttar Pradesh</span>
+      <h1 class="font-display text-[84px] leading-none font-light tracking-tighter text-primary">31°</h1>
+      <p class="text-base text-muted font-normal">Partly Cloudy · Feels like 34°</p>
+    </section>
+
+    <!-- Core Telemetry -->
+    <section class="flex items-center justify-center gap-10 md:gap-14 text-center">
+      <div>
+        <span class="block text-xs uppercase tracking-wider text-muted font-medium mb-1">Humidity</span>
+        <span class="font-display text-xl font-semibold text-primary">72%</span>
+      </div>
+      <div>
+        <span class="block text-xs uppercase tracking-wider text-muted font-medium mb-1">Wind</span>
+        <span class="font-display text-xl font-semibold text-primary">12 km/h</span>
+      </div>
+      <div>
+        <span class="block text-xs uppercase tracking-wider text-muted font-medium mb-1">Rain Prob</span>
+        <span class="font-display text-xl font-semibold text-primary">20%</span>
+      </div>
+    </section>
+
+    <!-- Copilot Input -->
+    <section class="w-full space-y-3">
+      <form id="copilot-form" class="relative flex items-center w-full bg-white rounded-2xl border border-soft-blue shadow-[0_4px_20px_rgba(2,132,199,0.04)] focus-within:border-accent transition-all p-1.5">
+        <input 
+          id="copilot-input" 
+          type="text" 
+          placeholder="Ask WeatherGPT anything about Lucknow's weather..." 
+          class="w-full pl-4 pr-24 py-3 bg-transparent text-sm text-primary placeholder:text-muted outline-none"
+        />
+        
+        <div class="absolute right-2.5 flex items-center gap-1.5">
+          <button 
+            type="button" 
+            aria-label="Voice prompt" 
+            class="w-8 h-8 rounded-xl flex items-center justify-center text-muted hover:text-accent hover:bg-soft-blue-50 transition-colors"
+          >
+            <span class="material-symbols-outlined text-[19px]">mic</span>
+          </button>
+          <button 
+            type="submit" 
+            aria-label="Submit question" 
+            class="w-8 h-8 rounded-xl bg-accent text-white flex items-center justify-center hover:bg-accent-dark active:scale-95 transition-all"
+          >
+            <span class="material-symbols-outlined text-[17px]">arrow_upward</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- Suggestion Chips -->
+      <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
+        <button onclick="fillQuery(this)" class="px-3.5 py-1.5 rounded-full bg-soft-blue text-xs text-accent font-medium hover:bg-soft-blue-50 transition-colors">
+          Will it rain tomorrow?
+        </button>
+        <button onclick="fillQuery(this)" class="px-3.5 py-1.5 rounded-full bg-soft-blue text-xs text-accent font-medium hover:bg-soft-blue-50 transition-colors">
+          Is it safe to travel tonight?
+        </button>
+        <button onclick="fillQuery(this)" class="px-3.5 py-1.5 rounded-full bg-soft-blue text-xs text-accent font-medium hover:bg-soft-blue-50 transition-colors">
+          Can I plan an outdoor event?
+        </button>
+      </div>
+    </section>
+
+    <!-- Today's Chronology Timeline -->
+    <section class="w-full pt-4 border-t border-soft-blue">
+      <div class="grid grid-cols-5 gap-2 text-center">
+        <div class="flex flex-col items-center space-y-1.5">
+          <span class="text-xs text-muted font-medium">10 AM</span>
+          <span class="material-symbols-outlined text-amber-500 text-[22px]">sunny</span>
+          <span class="text-sm font-display font-medium text-primary">30°</span>
+        </div>
+        <div class="flex flex-col items-center space-y-1.5">
+          <span class="text-xs text-muted font-medium">12 PM</span>
+          <span class="material-symbols-outlined text-amber-500 text-[22px]">sunny</span>
+          <span class="text-sm font-display font-medium text-primary">32°</span>
+        </div>
+        <div class="flex flex-col items-center space-y-1.5">
+          <span class="text-xs text-muted font-medium">2 PM</span>
+          <span class="material-symbols-outlined text-muted text-[22px]">partly_cloudy_day</span>
+          <span class="text-sm font-display font-medium text-primary">33°</span>
+        </div>
+        <div class="flex flex-col items-center space-y-1.5">
+          <span class="text-xs text-muted font-medium">4 PM</span>
+          <span class="material-symbols-outlined text-accent text-[22px]">rainy</span>
+          <span class="text-sm font-display font-medium text-primary">31°</span>
+        </div>
+        <div class="flex flex-col items-center space-y-1.5">
+          <span class="text-xs text-muted font-medium">6 PM</span>
+          <span class="material-symbols-outlined text-accent text-[22px]">thunderstorm</span>
+          <span class="text-sm font-display font-medium text-primary">29°</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Warm Advisory Banner -->
+    <section class="w-full">
+      <div class="w-full rounded-2xl bg-sand p-4 flex items-center justify-center gap-2.5 border border-amber-200/50 text-center">
+        <span class="material-symbols-outlined text-[20px] text-amber-700 shrink-0">warning</span>
+        <p class="text-xs text-primary font-medium leading-relaxed">
+          Heavy convective rainfall expected after 6:00 PM IST. Localized waterlogging probable.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full max-w-5xl mx-auto px-6 py-6 text-center text-xs text-muted">
+    <span>WeatherGPT Systems · Verified Atmospheric Telemetry</span>
+  </footer>
+
+  <script>
+    function fillQuery(btn) {
+      const input = document.getElementById('copilot-input');
+      input.value = btn.innerText.trim();
+      input.focus();
+    }
+
+    document.getElementById('copilot-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = document.getElementById('copilot-input').value.trim();
+      if (val) {
+        window.location.href = `assistant.html?q=${encodeURIComponent(val)}`;
+      }
+    });
+  </script>
+</body>
+</html>

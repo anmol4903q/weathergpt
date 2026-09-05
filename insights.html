@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WeatherGPT — Insights</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            canvas: "#FAF9F4",
+            "soft-blue-50": "#F0F9FF",
+            "soft-blue": "#E0F2FE",
+            accent: "#0284C7",
+            "accent-dark": "#0369A1",
+            sand: "#FAF5E6",
+            primary: "#1E293B",
+            muted: "#64748B"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            display: ["Plus Jakarta Sans", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-canvas text-primary font-sans antialiased min-h-screen flex flex-col justify-between">
+
+  <!-- Header -->
+  <header class="w-full max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-accent inline-block"></span>
+      <span class="font-display font-bold text-lg tracking-tight text-primary">WeatherGPT</span>
+    </a>
+
+    <nav class="hidden sm:flex items-center gap-6">
+      <a href="index.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Home</a>
+      <a href="assistant.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Assistant</a>
+      <a href="map.html" class="text-sm font-medium text-muted hover:text-primary transition-colors">Map</a>
+      <a href="insights.html" class="text-sm font-medium text-accent">Insights</a>
+    </nav>
+
+    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-soft-blue text-xs font-medium text-accent">
+      <span class="material-symbols-outlined text-[15px]">location_on</span>
+      <span>Lucknow, UP</span>
+    </div>
+  </header>
+
+  <!-- Main View Area -->
+  <main class="w-full max-w-2xl mx-auto px-6 py-8 flex flex-col items-center space-y-8">
+
+    <!-- Segmented Control -->
+    <div class="inline-flex p-1 rounded-full bg-soft-blue border border-soft-blue">
+      <button id="btn-climate" onclick="toggleView('climate')" class="px-5 py-1.5 rounded-full text-xs font-medium bg-white text-accent shadow-sm transition-all">
+        Climate Trends
+      </button>
+      <button id="btn-agri" onclick="toggleView('agri')" class="px-5 py-1.5 rounded-full text-xs font-medium text-muted hover:text-primary transition-all">
+        Agricultural Advisory
+      </button>
+    </div>
+
+    <!-- VIEW 1: CLIMATE TRENDS -->
+    <section id="view-climate" class="w-full space-y-8">
+      
+      <div class="text-center space-y-1">
+        <span class="text-xs uppercase tracking-wider text-muted font-medium">Lucknow Sub-Basin</span>
+        <h1 class="font-display text-4xl font-light text-primary tracking-tight">1,024 <span class="text-xl text-muted">mm/year</span></h1>
+        <p class="text-xs text-muted">20-Year Baseline Precipitation (+4.2% decadal variance)</p>
+      </div>
+
+      <!-- Historical Bars -->
+      <div class="bg-white rounded-2xl border border-soft-blue p-6 space-y-4 shadow-[0_2px_12px_rgba(2,132,199,0.03)]">
+        <div class="flex justify-between items-center text-xs">
+          <span class="font-semibold text-primary">Annual Precipitation Distribution</span>
+          <span class="text-muted">2005 — 2025</span>
+        </div>
+
+        <div class="flex items-end justify-between h-44 pt-4 border-b border-soft-blue px-2">
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-7 bg-soft-blue rounded-t" style="height: 60px;"></div>
+            <span class="text-[11px] text-muted">'05</span>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-7 bg-soft-blue rounded-t" style="height: 75px;"></div>
+            <span class="text-[11px] text-muted">'09</span>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-7 bg-soft-blue rounded-t" style="height: 95px;"></div>
+            <span class="text-[11px] text-muted">'13</span>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-7 bg-soft-blue rounded-t" style="height: 80px;"></div>
+            <span class="text-[11px] text-muted">'17</span>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-7 bg-soft-blue rounded-t" style="height: 110px;"></div>
+            <span class="text-[11px] text-muted">'21</span>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-7 bg-accent rounded-t shadow-sm" style="height: 125px;"></div>
+            <span class="text-[11px] font-semibold text-accent">'25</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-muted pt-1">
+          <span>Min: 720 mm</span>
+          <span class="text-accent font-medium">73% concentrated into 38 days</span>
+          <span>Max: 1,294 mm</span>
+        </div>
+      </div>
+
+      <!-- Telemetric Shift Box -->
+      <div class="rounded-2xl bg-soft-blue-50 p-4 border border-soft-blue text-xs text-accent-dark leading-relaxed text-center">
+        Monsoon onset in Central UP has shifted forward by <strong>11 days</strong> over two decades, adjusting optimal sowing dates for kharif cereals.
+      </div>
+    </section>
+
+    <!-- VIEW 2: AGRICULTURAL ADVISORY -->
+    <section id="view-agri" class="w-full space-y-6 hidden">
+      <div class="text-center space-y-1">
+        <span class="text-xs uppercase tracking-wider text-muted font-medium">Field Operations Window</span>
+        <h2 class="font-display text-2xl font-medium text-primary">Active Crop: Wheat (Rabi)</h2>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- Spraying Advice -->
+        <div class="bg-white rounded-2xl border border-soft-blue p-5 space-y-2 shadow-[0_2px_12px_rgba(2,132,199,0.03)]">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-primary">Foliar Operations</span>
+            <span class="text-[11px] font-medium text-amber-800 bg-sand px-2 py-0.5 rounded-full">Hold</span>
+          </div>
+          <p class="text-xs text-muted leading-relaxed">
+            Washout risk elevated (78% rain chance). Delay pesticide or fertilizer spraying until Thursday morning when winds settle under 8 km/h.
+          </p>
+        </div>
+
+        <!-- Irrigation Advice -->
+        <div class="bg-white rounded-2xl border border-soft-blue p-5 space-y-2 shadow-[0_2px_12px_rgba(2,132,199,0.03)]">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-primary">Irrigation Cycle</span>
+            <span class="text-[11px] font-medium text-accent bg-soft-blue px-2 py-0.5 rounded-full">Hold 48h</span>
+          </div>
+          <p class="text-xs text-muted leading-relaxed">
+            Subsurface soil saturation is currently at 68%. Imminent convective showers will naturally replenish root moisture across the belt.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full max-w-5xl mx-auto px-6 py-6 text-center text-xs text-muted">
+    <span>WeatherGPT Systems · Verified Atmospheric Telemetry</span>
+  </footer>
+
+  <script>
+    function toggleView(tab) {
+      const climateView = document.getElementById('view-climate');
+      const agriView = document.getElementById('view-agri');
+      const btnClimate = document.getElementById('btn-climate');
+      const btnAgri = document.getElementById('btn-agri');
+
+      if (tab === 'climate') {
+        climateView.classList.remove('hidden');
+        agriView.classList.add('hidden');
+        btnClimate.className = 'px-5 py-1.5 rounded-full text-xs font-medium bg-white text-accent shadow-sm transition-all';
+        btnAgri.className = 'px-5 py-1.5 rounded-full text-xs font-medium text-muted hover:text-primary transition-all';
+      } else {
+        climateView.classList.add('hidden');
+        agriView.classList.remove('hidden');
+        btnAgri.className = 'px-5 py-1.5 rounded-full text-xs font-medium bg-white text-accent shadow-sm transition-all';
+        btnClimate.className = 'px-5 py-1.5 rounded-full text-xs font-medium text-muted hover:text-primary transition-all';
+      }
+    }
+  </script>
+</body>
+</html>
