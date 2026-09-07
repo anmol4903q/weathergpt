@@ -1,0 +1,92 @@
+name: Extract Backend
+
+on:
+  push:
+    paths:
+      - "weathergpt-backend.zip"
+      - ".github/workflows/extract-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract backend ZIP
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          import shutil
+
+          zip_path = Path("weathergpt-backend.zip")
+          target = Path("backend")
+
+          if not zip_path.exists():
+              raise SystemExit("Backend ZIP not found")
+
+          if target.exists():
+              shutil.rmtree(target)
+
+          target.mkdir()
+
+          with zipfile.ZipFile(zip_path) as z:
+              files = [n for n in z.namelist() if not n.endswith("/")]
+
+              # Detect common archive layouts
+              parts = [Path(n).parts for n in files]
+
+              if parts and all(len(p) > 1 and p[0] == parts[0][0] for p in parts):
+                  root = parts[0][0]
+              else:
+                  root = None
+
+              for name in files:
+                  p = Path(name)
+
+                  if root and p.parts[0] == root:
+                      relative = Path(*p.parts[1:])
+                  else:
+                      relative = p
+
+                  if not relative.parts:
+                      continue
+
+                  # Never extract secrets
+                  if relative.name == ".env":
+                      continue
+
+                  destination = target / relative
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+
+                  with z.open(name) as src, open(destination, "wb") as dst:
+                      shutil.copyfileobj(src, dst)
+
+          print("Backend extracted successfully")
+          PY
+
+      - name: Remove ZIP and secrets
+        run: |
+          rm -f weathergpt-backend.zip
+          rm -f backend/.env
+
+      - name: Commit backend
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add backend
+          git rm -f weathergpt-backend.zip || true
+
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "Extract backend"
+            git push
+          fi
