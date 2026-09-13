@@ -57,6 +57,14 @@ class SourceStatus(BaseModel):
     ai: str               # "available" | "degraded"
 
 
+class RiskAssessment(BaseModel):
+    """Phase 6 — WeatherGPT's own deterministic risk judgment, never an
+    official warning. Only populated for TRAVEL_WEATHER, ACTIVITY_ADVICE,
+    and AGRICULTURE_WEATHER intents; None everywhere else."""
+    level: str  # "LOW" | "MODERATE" | "HIGH" | "UNKNOWN"
+    reasons: list[str] = []
+
+
 class ChatResponse(BaseModel):
     answer: str
     location: ChatLocationOut
@@ -65,3 +73,4 @@ class ChatResponse(BaseModel):
     weather_summary: WeatherSummary
     official_alerts: list[ImdWarningItem] = []
     source_status: SourceStatus
+    risk: RiskAssessment | None = None

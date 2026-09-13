@@ -9,8 +9,8 @@ overwrite each other's location.
 
 from app.config import get_settings
 from app.models.alerts import ImdWarningItem
-from app.models.chat import ChatLocationOut, ChatResponse, SourceStatus, WeatherSummary
-from app.services import location_service
+from app.models.chat import ChatLocationOut, ChatResponse, RiskAssessment, SourceStatus, WeatherSummary
+from app.services import location_service, risk_engine
 from app.services.query_understanding import QueryUnderstandingError, parse_query
 from app.services.response_generator import ResponseGenerationError, generate_answer
 from app.services.time_resolution import resolve_time_reference
@@ -77,6 +77,11 @@ async def handle_chat(message: str, current_lat: float, current_lon: float) -> C
         parsed, target_lat, target_lon, resolved_time, settings.weather_api_key
     )
 
+    # --- 6b. Risk analysis (Phase 6) — deterministic, from the same data
+    # above. None for intents where a risk judgment isn't the point of
+    # the question; never fabricated, never guessed as LOW on missing data.
+    risk_result = risk_engine.compute_risk(parsed.intent, context)
+
     trimmed_alerts_for_gemini = [
         {k: v for k, v in a.items() if k != "polygon"} for a in context["alerts"]
     ]
@@ -89,6 +94,7 @@ async def handle_chat(message: str, current_lat: float, current_lon: float) -> C
         "daily_summary": context["daily_summary"],
         "official_alerts_status": context["source_status"]["imd_alerts"],
         "official_alerts": trimmed_alerts_for_gemini,
+        "weathergpt_risk_assessment": risk_result,
     }
 
     # --- 7. Gemini grounded answer ---
@@ -125,4 +131,5 @@ async def handle_chat(message: str, current_lat: float, current_lon: float) -> C
             imd_alerts=context["source_status"]["imd_alerts"],
             ai=ai_status,
         ),
+        risk=RiskAssessment(**risk_result) if risk_result else None,
     )
