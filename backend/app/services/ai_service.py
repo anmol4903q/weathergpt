@@ -7,6 +7,8 @@ module/global state. Two concurrent users must never be able to see or
 overwrite each other's location.
 """
 
+import logging
+
 from app.config import get_settings
 from app.models.alerts import ImdWarningItem
 from app.models.chat import ChatLocationOut, ChatResponse, RiskAssessment, SourceStatus, WeatherSummary
@@ -16,6 +18,8 @@ from app.services.response_generator import ResponseGenerationError, generate_an
 from app.services.time_resolution import resolve_time_reference
 from app.services.weather_context import gather_weather_context
 
+logger = logging.getLogger(__name__)
+
 
 async def handle_chat(message: str, current_lat: float, current_lon: float) -> ChatResponse:
     settings = get_settings()
@@ -23,7 +27,8 @@ async def handle_chat(message: str, current_lat: float, current_lon: float) -> C
     # --- 1. Query understanding ---
     try:
         parsed = await parse_query(message, settings.gemini_api_key, settings.gemini_model)
-    except QueryUnderstandingError:
+    except QueryUnderstandingError as exc:
+        logger.warning("Query understanding failed, falling back to UNKNOWN: %s", exc)
         return ChatResponse(
             answer=(
                 "I couldn't understand that question well enough to look up "
@@ -103,7 +108,8 @@ async def handle_chat(message: str, current_lat: float, current_lon: float) -> C
         answer = await generate_answer(
             message, gemini_context, settings.gemini_api_key, settings.gemini_model
         )
-    except ResponseGenerationError:
+    except ResponseGenerationError as exc:
+        logger.warning("Answer generation failed, degrading gracefully: %s", exc)
         ai_status = "degraded"
         answer = (
             "I've got the weather data below, but the AI summary isn't "
