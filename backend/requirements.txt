@@ -5,3 +5,4 @@ python-dotenv==1.0.1
 httpx==0.28.1
 shapely==2.0.6
 groq==1.7.0
+google-genai
