@@ -55,7 +55,7 @@
 
     <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-soft-blue text-xs font-medium text-accent">
       <span class="material-symbols-outlined text-[15px]">location_on</span>
-      <span>Lucknow, UP</span>
+      <span id="header-location">Locating…</span>
     </div>
   </header>
 
@@ -71,10 +71,9 @@
         <input 
           type="text" 
           placeholder="Search location..." 
-          value="Lucknow, Uttar Pradesh"
           class="bg-transparent text-xs text-primary outline-none w-full placeholder:text-muted"
         />
-        <span class="text-[11px] font-medium text-accent bg-soft-blue px-2 py-0.5 rounded-full">31°C</span>
+        <span id="current-temp-badge" class="text-[11px] font-medium text-accent bg-soft-blue px-2 py-0.5 rounded-full">—</span>
       </div>
     </div>
 
@@ -97,30 +96,182 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
-    const map = L.map('real-map', {
-      zoomControl: false
-    }).setView([26.8467, 80.9462], 10);
+    const API_BASE_URL = "https://weathergpt-77b2.onrender.com";
+    // Render's free tier can take 30-50s to wake from a cold start — a
+    // short timeout would misreport that as "server down".
+    const FETCH_TIMEOUT_MS = 55000;
 
-    // Warm, muted CartoDB Positron tiles matching #FAF9F4
+    // currentLocation is populated ONLY by GPS in this step.
+    // queryLocation is declared for the future search step and MUST stay
+    // null here — nothing in this file writes to it.
+    let currentLocation = null; // { latitude, longitude, name }
+    let queryLocation = null;
+
+    let currentMarker = null;
+
+    // Neutral India-wide view — never assume a specific city before GPS resolves.
+    const map = L.map('real-map', { zoomControl: false }).setView([22.9734, 78.6569], 5);
+
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 18
     }).addTo(map);
 
-    const customIcon = L.divIcon({
+    function setHeaderLocation(text) {
+      document.getElementById('header-location').textContent = text;
+    }
+
+    function setTempBadge(text) {
+      document.getElementById('current-temp-badge').textContent = text;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str == null ? '' : String(str);
+      return div.innerHTML;
+    }
+
+    async function fetchWithTimeout(url) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+        return await response.json();
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          throw new Error('The server took too long to respond (it may be waking up — try again shortly).');
+        }
+        throw new Error('Could not reach the WeatherGPT server.');
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function apiGet(path, params) {
+      const url = new URL(API_BASE_URL + path);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+      return fetchWithTimeout(url.toString());
+    }
+
+    // GET /location/reverse?lat=&lon= -> LocationResponse
+    // { city, district, state, latitude, longitude, raw_display_name }
+    function reverseGeocode(lat, lon) {
+      return apiGet('/location/reverse', { lat, lon });
+    }
+
+    // GET /weather/current?lat=&lon= -> CurrentWeatherResponse
+    // { latitude, longitude, temperature_c, feels_like_c, humidity_pct,
+    //   wind_speed_ms, wind_deg, visibility_m, pressure_hpa, rain_1h_mm,
+    //   condition_main, condition_description }
+    function fetchCurrentWeather(lat, lon) {
+      return apiGet('/weather/current', { lat, lon });
+    }
+
+    const currentLocationIcon = L.divIcon({
       className: 'custom-pin',
-      html: `
-        <div style="background-color: #0284C7; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 2px 8px rgba(2,132,199,0.4);"></div>
-      `,
+      html: `<div style="background-color: #0284C7; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 2px 8px rgba(2,132,199,0.4);"></div>`,
       iconSize: [14, 14],
       iconAnchor: [7, 7]
     });
 
-    L.marker([26.8467, 80.9462], { icon: customIcon })
-      .addTo(map)
-      .bindPopup('<b>Lucknow Observatory</b><br>31°C · Convective showers at 6 PM')
-      .openPopup();
+    // Builds popup HTML using ONLY fields confirmed to exist in
+    // CurrentWeatherResponse — no fabricated observatory name, no
+    // implied forecast time (this is a current-weather reading only).
+    function buildPopupContent(locationName, weather) {
+      const lines = [`<b>${escapeHtml(locationName)}</b>`];
+      if (weather) {
+        const temp = Math.round(weather.temperature_c);
+        const feelsLike = Math.round(weather.feels_like_c);
+        lines.push(`${temp}°C · ${escapeHtml(weather.condition_description)}`);
+        lines.push(`Feels like ${feelsLike}°C`);
+      } else {
+        lines.push('<span style="color:#64748B">Weather unavailable</span>');
+      }
+      return lines.join('<br>');
+    }
+
+    function handleGeolocationError(error) {
+      let message;
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          message = 'Location access was denied. Enable it in your browser settings to see your position.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          message = 'Your location could not be determined right now.';
+          break;
+        case error.TIMEOUT:
+          message = 'Getting your location took too long. Please try again.';
+          break;
+        default:
+          message = 'Location unavailable.';
+      }
+      console.warn('Geolocation failed:', message);
+      // No silent fallback to Lucknow — map stays at the neutral default view.
+      setHeaderLocation('Location unavailable');
+      setTempBadge('N/A');
+    }
+
+    async function handleGeolocationSuccess(position) {
+      const { latitude, longitude } = position.coords;
+
+      currentLocation = { latitude, longitude, name: null };
+
+      map.setView([latitude, longitude], 13);
+
+      if (currentMarker) {
+        map.removeLayer(currentMarker);
+      }
+      currentMarker = L.marker([latitude, longitude], { icon: currentLocationIcon })
+        .addTo(map)
+        .bindPopup(buildPopupContent('Current location', null))
+        .openPopup();
+
+      // Independent by design: one failing must not block the other.
+      const [reverseResult, weatherResult] = await Promise.allSettled([
+        reverseGeocode(latitude, longitude),
+        fetchCurrentWeather(latitude, longitude),
+      ]);
+
+      let locationName = 'Current location';
+      if (reverseResult.status === 'fulfilled') {
+        const place = reverseResult.value;
+        locationName = place.city
+          ? `${place.city}${place.state ? ', ' + place.state : ''}`
+          : 'Current location';
+        currentLocation.name = locationName;
+        setHeaderLocation(locationName);
+      } else {
+        console.warn('Reverse geocoding failed:', reverseResult.reason?.message);
+        setHeaderLocation('Current location');
+      }
+
+      let weather = null;
+      if (weatherResult.status === 'fulfilled') {
+        weather = weatherResult.value;
+        setTempBadge(`${Math.round(weather.temperature_c)}°`);
+      } else {
+        console.warn('Weather fetch failed:', weatherResult.reason?.message);
+        setTempBadge('N/A');
+      }
+
+      currentMarker.setPopupContent(buildPopupContent(locationName, weather));
+    }
+
+    function requestCurrentLocation() {
+      if (!('geolocation' in navigator)) {
+        handleGeolocationError({ code: 0 });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        handleGeolocationSuccess,
+        handleGeolocationError,
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+      );
+    }
+
+    requestCurrentLocation();
   </script>
 </body>
 </html>
