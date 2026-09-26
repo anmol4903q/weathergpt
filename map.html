@@ -114,6 +114,11 @@
     let currentMarker = null;
     let queryLocationMarker = null;
 
+    // Separate alert-polygon layers per location, so refreshing one
+    // location's warnings never touches the other's.
+    let currentAlertLayers = [];
+    let queryAlertLayers = [];
+
     // Neutral India-wide view — never assume a specific city before GPS resolves.
     const map = L.map('real-map', { zoomControl: false }).setView([22.9734, 78.6569], 5);
 
@@ -201,6 +206,15 @@
       return apiGet('/weather/current', { lat, lon });
     }
 
+    // GET /weather/alerts?lat=&lon= -> ImdAlertsResponse
+    // { latitude, longitude, source_provider, source_official, status,
+    //   warnings: [...], attribution, granularity_note }
+    // status: "ok" | "no_active_warning" | "unavailable" — these three
+    // are never conflated; "unavailable" is NEVER shown as "no warnings".
+    function fetchAlerts(lat, lon) {
+      return apiGet('/weather/alerts', { lat, lon });
+    }
+
     const currentLocationIcon = L.divIcon({
       className: 'custom-pin',
       html: `<div style="background-color: #0284C7; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 2px 8px rgba(2,132,199,0.4);"></div>`,
@@ -220,7 +234,7 @@
     // Builds popup HTML using ONLY fields confirmed to exist in
     // CurrentWeatherResponse — no fabricated observatory name, no
     // implied forecast time (this is a current-weather reading only).
-    function buildPopupContent(locationName, weather) {
+    function buildPopupContent(locationName, weather, alertSummaryLine) {
       const lines = [`<b>${escapeHtml(locationName)}</b>`];
       if (weather) {
         const temp = Math.round(weather.temperature_c);
@@ -230,7 +244,78 @@
       } else {
         lines.push('<span style="color:#64748B">Weather unavailable</span>');
       }
+      if (alertSummaryLine) {
+        lines.push(alertSummaryLine);
+      }
       return lines.join('<br>');
+    }
+
+    // One line summarizing alert status, appended to the location's own
+    // marker popup. The three statuses are always visually/textually
+    // distinct — "unavailable" is never worded as "no warnings".
+    function buildAlertSummaryLine(alertsResponse) {
+      if (!alertsResponse) {
+        return '<span style="color:#64748B">Warning status unknown</span>';
+      }
+      if (alertsResponse.status === 'ok' && alertsResponse.warnings.length > 0) {
+        const count = alertsResponse.warnings.length;
+        return `<span style="color:#DC2626">⚠ ${count} official warning${count > 1 ? 's' : ''} — see highlighted area${count > 1 ? 's' : ''}</span>`;
+      }
+      if (alertsResponse.status === 'no_active_warning') {
+        return '<span style="color:#16A34A">No active warnings</span>';
+      }
+      // status === 'unavailable'
+      return '<span style="color:#64748B">Warning data unavailable</span>';
+    }
+
+    // Real IMD fields only, escaped, using only what the schema actually
+    // provides. No invented labels, no fabricated forecast claims.
+    function buildWarningPopupContent(warning, attribution, granularityNote) {
+      const lines = [
+        `<b>${escapeHtml(warning.headline)}</b>`,
+        `${escapeHtml(warning.event)} · ${escapeHtml(warning.severity)}`,
+        `Area: ${escapeHtml(warning.area_description)}`,
+        escapeHtml(warning.description),
+      ];
+      if (warning.instruction) {
+        lines.push(`<b>Instruction:</b> ${escapeHtml(warning.instruction)}`);
+      }
+      if (warning.onset) {
+        lines.push(`Onset: ${escapeHtml(warning.onset)}`);
+      }
+      if (warning.expires) {
+        lines.push(`Expires: ${escapeHtml(warning.expires)}`);
+      }
+      lines.push(`<span style="color:#64748B; font-size: 0.9em;">${escapeHtml(attribution)}</span>`);
+      lines.push(`<span style="color:#64748B; font-size: 0.85em;">${escapeHtml(granularityNote)}</span>`);
+      return lines.join('<br>');
+    }
+
+    function clearAlertLayers(layerArray) {
+      layerArray.forEach(layer => map.removeLayer(layer));
+      layerArray.length = 0;
+    }
+
+    // Draws real IMD polygons only (status "ok"). Returns the created
+    // layers so the caller can track them for later independent cleanup.
+    function renderAlertPolygons(alertsResponse) {
+      const layers = [];
+      if (alertsResponse.status !== 'ok') return layers;
+
+      for (const warning of alertsResponse.warnings) {
+        if (!warning.polygon || warning.polygon.length < 3) continue; // no fabricated shape for missing/degenerate geometry
+        // Backend polygon points are [lat, lon] — Leaflet's L.polygon
+        // expects the same [lat, lon] order, so no coordinate flip needed.
+        const polygon = L.polygon(warning.polygon, {
+          color: '#DC2626',
+          weight: 2,
+          fillColor: '#DC2626',
+          fillOpacity: 0.15,
+        }).addTo(map);
+        polygon.bindPopup(buildWarningPopupContent(warning, alertsResponse.attribution, alertsResponse.granularity_note));
+        layers.push(polygon);
+      }
+      return layers;
     }
 
     function handleGeolocationError(error) {
@@ -270,10 +355,11 @@
         .bindPopup(buildPopupContent('Current location', null))
         .openPopup();
 
-      // Independent by design: one failing must not block the other.
-      const [reverseResult, weatherResult] = await Promise.allSettled([
+      // Independent by design: one failing must not block the others.
+      const [reverseResult, weatherResult, alertsResult] = await Promise.allSettled([
         reverseGeocode(latitude, longitude),
         fetchCurrentWeather(latitude, longitude),
+        fetchAlerts(latitude, longitude),
       ]);
 
       let locationName = 'Current location';
@@ -298,7 +384,17 @@
         setTempBadge('N/A');
       }
 
-      currentMarker.setPopupContent(buildPopupContent(locationName, weather));
+      clearAlertLayers(currentAlertLayers);
+      let alertSummary;
+      if (alertsResult.status === 'fulfilled') {
+        currentAlertLayers = renderAlertPolygons(alertsResult.value);
+        alertSummary = buildAlertSummaryLine(alertsResult.value);
+      } else {
+        console.warn('Alerts fetch failed:', alertsResult.reason?.message);
+        alertSummary = buildAlertSummaryLine(null);
+      }
+
+      currentMarker.setPopupContent(buildPopupContent(locationName, weather, alertSummary));
     }
 
     function requestCurrentLocation() {
@@ -353,13 +449,27 @@
         .bindPopup(buildPopupContent(queryLocation.name, null))
         .openPopup();
 
-      try {
-        const weather = await fetchCurrentWeather(place.latitude, place.longitude);
-        queryLocationMarker.setPopupContent(buildPopupContent(queryLocation.name, weather));
-      } catch (err) {
-        console.warn('Weather fetch failed for searched location:', err.message);
-        queryLocationMarker.setPopupContent(buildPopupContent(queryLocation.name, null));
+      const [weatherResult, alertsResult] = await Promise.allSettled([
+        fetchCurrentWeather(place.latitude, place.longitude),
+        fetchAlerts(place.latitude, place.longitude),
+      ]);
+
+      const weather = weatherResult.status === 'fulfilled' ? weatherResult.value : null;
+      if (weatherResult.status !== 'fulfilled') {
+        console.warn('Weather fetch failed for searched location:', weatherResult.reason?.message);
       }
+
+      clearAlertLayers(queryAlertLayers);
+      let alertSummary;
+      if (alertsResult.status === 'fulfilled') {
+        queryAlertLayers = renderAlertPolygons(alertsResult.value);
+        alertSummary = buildAlertSummaryLine(alertsResult.value);
+      } else {
+        console.warn('Alerts fetch failed for searched location:', alertsResult.reason?.message);
+        alertSummary = buildAlertSummaryLine(null);
+      }
+
+      queryLocationMarker.setPopupContent(buildPopupContent(queryLocation.name, weather, alertSummary));
     }
 
     function renderSearchResult(place) {
