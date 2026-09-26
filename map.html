@@ -69,12 +69,16 @@
       <div class="flex items-center bg-white/95 backdrop-blur rounded-2xl border border-soft-blue shadow-[0_4px_20px_rgba(2,132,199,0.06)] px-4 py-2.5">
         <span class="material-symbols-outlined text-[18px] text-accent mr-2">search</span>
         <input 
+          id="location-search-input"
           type="text" 
           placeholder="Search location..." 
           class="bg-transparent text-xs text-primary outline-none w-full placeholder:text-muted"
         />
         <span id="current-temp-badge" class="text-[11px] font-medium text-accent bg-soft-blue px-2 py-0.5 rounded-full">—</span>
       </div>
+
+      <!-- Search results (Phase 8 Step 2) -->
+      <div id="search-results" class="hidden mt-2 bg-white/95 backdrop-blur rounded-2xl border border-soft-blue shadow-[0_4px_20px_rgba(2,132,199,0.06)] overflow-hidden text-xs text-primary"></div>
     </div>
 
     <!-- Minimal Layer Pills -->
@@ -108,6 +112,7 @@
     let queryLocation = null;
 
     let currentMarker = null;
+    let queryLocationMarker = null;
 
     // Neutral India-wide view — never assume a specific city before GPS resolves.
     const map = L.map('real-map', { zoomControl: false }).setView([22.9734, 78.6569], 5);
@@ -144,7 +149,9 @@
         if (!response.ok) {
           const bodyText = await response.text().catch(() => '(could not read body)');
           console.log('[WeatherGPT diag] Non-200 response body:', bodyText);
-          throw new Error(`Server returned ${response.status}`);
+          const httpErr = new Error(`Server returned ${response.status}`);
+          httpErr.status = response.status;
+          throw httpErr;
         }
         const cloned = response.clone();
         try {
@@ -159,6 +166,7 @@
         if (err.name === 'AbortError') {
           throw new Error('The server took too long to respond (it may be waking up — try again shortly).');
         }
+        if (err.status) throw err; // preserve status (e.g. 422 = no results) for callers that need it
         throw new Error('Could not reach the WeatherGPT server.');
       } finally {
         clearTimeout(timer);
@@ -177,6 +185,14 @@
       return apiGet('/location/reverse', { lat, lon });
     }
 
+    // GET /location/search?q= -> LocationResponse (a SINGLE object, not a
+    // list — confirmed against the actual backend: forward_geocode uses
+    // Nominatim's limit=1). "No results" surfaces as HTTP 422, not an
+    // empty array. Never overwrites currentLocation.
+    function searchLocation(q) {
+      return apiGet('/location/search', { q });
+    }
+
     // GET /weather/current?lat=&lon= -> CurrentWeatherResponse
     // { latitude, longitude, temperature_c, feels_like_c, humidity_pct,
     //   wind_speed_ms, wind_deg, visibility_m, pressure_hpa, rain_1h_mm,
@@ -188,6 +204,15 @@
     const currentLocationIcon = L.divIcon({
       className: 'custom-pin',
       html: `<div style="background-color: #0284C7; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 2px 8px rgba(2,132,199,0.4);"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
+    });
+
+    // Visually distinct from the GPS pin (square vs. circle) so the two
+    // marker types are conceptually separable at a glance, not just in code.
+    const queryLocationIcon = L.divIcon({
+      className: 'custom-pin',
+      html: `<div style="background-color: #0369A1; width: 14px; height: 14px; border-radius: 4px; border: 2.5px solid white; box-shadow: 0 2px 8px rgba(3,105,161,0.4);"></div>`,
       iconSize: [14, 14],
       iconAnchor: [7, 7]
     });
@@ -287,6 +312,105 @@
         { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
       );
     }
+
+    // ---------------- Phase 8 Step 2: location search ----------------
+    // queryLocation is populated ONLY here, ONLY on explicit result
+    // selection. Nothing below reads or writes currentLocation/currentMarker.
+
+    function showSearchResults(html) {
+      const el = document.getElementById('search-results');
+      el.innerHTML = html;
+      el.classList.remove('hidden');
+    }
+
+    function hideSearchResults() {
+      const el = document.getElementById('search-results');
+      el.classList.add('hidden');
+      el.innerHTML = '';
+    }
+
+    function createQueryLocationMarker(lat, lon) {
+      if (queryLocationMarker) {
+        map.removeLayer(queryLocationMarker);
+      }
+      queryLocationMarker = L.marker([lat, lon], { icon: queryLocationIcon }).addTo(map);
+      return queryLocationMarker;
+    }
+
+    async function selectSearchResult(place) {
+      hideSearchResults();
+
+      // queryLocation only — currentLocation is untouched.
+      queryLocation = {
+        latitude: place.latitude,
+        longitude: place.longitude,
+        name: place.city ? `${place.city}${place.state ? ', ' + place.state : ''}` : (place.raw_display_name || 'Selected location'),
+      };
+
+      map.setView([place.latitude, place.longitude], 12);
+
+      createQueryLocationMarker(place.latitude, place.longitude)
+        .bindPopup(buildPopupContent(queryLocation.name, null))
+        .openPopup();
+
+      try {
+        const weather = await fetchCurrentWeather(place.latitude, place.longitude);
+        queryLocationMarker.setPopupContent(buildPopupContent(queryLocation.name, weather));
+      } catch (err) {
+        console.warn('Weather fetch failed for searched location:', err.message);
+        queryLocationMarker.setPopupContent(buildPopupContent(queryLocation.name, null));
+      }
+    }
+
+    function renderSearchResult(place) {
+      const label = place.raw_display_name
+        || [place.city, place.state].filter(Boolean).join(', ')
+        || `${place.latitude}, ${place.longitude}`;
+      const container = document.createElement('div');
+      container.innerHTML = `<button type="button" class="w-full text-left px-4 py-2.5 hover:bg-soft-blue-50 transition-colors">${escapeHtml(label)}</button>`;
+      const btn = container.firstElementChild;
+      btn.addEventListener('click', () => selectSearchResult(place));
+      return btn;
+    }
+
+    let searchInFlight = false;
+
+    async function handleSearchSubmit() {
+      const input = document.getElementById('location-search-input');
+      const query = input.value.trim();
+
+      if (!query) {
+        hideSearchResults();
+        return;
+      }
+      if (searchInFlight) return;
+
+      searchInFlight = true;
+      showSearchResults('<div class="px-4 py-2.5 text-muted">Searching…</div>');
+
+      try {
+        const place = await searchLocation(query);
+        const resultsEl = document.getElementById('search-results');
+        resultsEl.innerHTML = '';
+        resultsEl.appendChild(renderSearchResult(place));
+      } catch (err) {
+        if (err.status === 422) {
+          showSearchResults('<div class="px-4 py-2.5 text-muted">No locations found.</div>');
+        } else {
+          showSearchResults('<div class="px-4 py-2.5 text-muted">Could not search location.</div>');
+        }
+      } finally {
+        searchInFlight = false;
+      }
+    }
+
+    document.getElementById('location-search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSearchSubmit();
+      }
+    });
+    // ---------------- end Phase 8 Step 2 ----------------
 
     requestCurrentLocation();
   </script>
