@@ -112,10 +112,9 @@
     // Neutral India-wide view — never assume a specific city before GPS resolves.
     const map = L.map('real-map', { zoomControl: false }).setView([22.9734, 78.6569], 5);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 18
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
     }).addTo(map);
 
     function setHeaderLocation(text) {
@@ -136,10 +135,27 @@
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
+        // TEMPORARY diagnostic logging (Phase 8 weather-failure diagnosis).
+        // Logs only the request URL, response status, and response body —
+        // never any API key, since none is ever present in frontend code.
+        console.log('[WeatherGPT diag] Requesting:', url);
         const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
-        return await response.json();
+        console.log('[WeatherGPT diag] HTTP status:', response.status, 'for', url);
+        if (!response.ok) {
+          const bodyText = await response.text().catch(() => '(could not read body)');
+          console.log('[WeatherGPT diag] Non-200 response body:', bodyText);
+          throw new Error(`Server returned ${response.status}`);
+        }
+        const cloned = response.clone();
+        try {
+          return await response.json();
+        } catch (parseErr) {
+          const rawText = await cloned.text().catch(() => '(could not read body)');
+          console.log('[WeatherGPT diag] JSON parse failed. Raw response body:', rawText);
+          throw parseErr;
+        }
       } catch (err) {
+        console.log('[WeatherGPT diag] Fetch failed for', url, '— error:', err.message || err);
         if (err.name === 'AbortError') {
           throw new Error('The server took too long to respond (it may be waking up — try again shortly).');
         }
