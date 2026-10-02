@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from app.config import get_settings
+from app.models.district_warning import DistrictWarningResponse
 from app.models.weather import CurrentWeatherResponse, DailyForecastResponse, HourlyForecastResponse
+from app.services import district_warning_service
 from app.services.weather_service import (
     WeatherAuthError,
     WeatherServiceError,
@@ -78,3 +80,28 @@ async def daily_forecast_endpoint(
         raise HTTPException(status_code=502, detail=str(exc))
 
     return DailyForecastResponse(**result)
+
+
+@router.get("/district-warning", response_model=DistrictWarningResponse)
+async def district_warning_prototype_endpoint(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+):
+    """
+    TEMPORARY PROTOTYPE (Phase 8 Step 3B) — IMD district-level warnings via
+    their public WFS layer. NOT wired into /weather/alerts. Not meant to
+    stay in the API surface long-term; exists to validate the data source
+    before any real integration decision is made.
+    """
+    try:
+        warning = await district_warning_service.find_district_warning(lat, lon)
+    except district_warning_service.DistrictWarningUnavailable as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    return DistrictWarningResponse(
+        latitude=lat,
+        longitude=lon,
+        matched=warning is not None,
+        warning=warning,
+    )
+
