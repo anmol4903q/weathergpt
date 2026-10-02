@@ -16,11 +16,15 @@ class DistrictWarningInfo(BaseModel):
     day3: int
     day4: int
     day5: int
-    day1_color: str | None = None
-    day2_color: str | None = None
-    day3_color: str | None = None
-    day4_color: str | None = None
-    day5_color: str | None = None
+    # IMD's live WFS sends these as integers (e.g. 4), not hex color
+    # strings as originally assumed from the documented schema alone.
+    # Widened to accept whatever type is actually present — no coercion,
+    # no reinterpretation of what the value means.
+    day1_color: int | str | None = None
+    day2_color: int | str | None = None
+    day3_color: int | str | None = None
+    day4_color: int | str | None = None
+    day5_color: int | str | None = None
     day1_label: str | None = None
     day2_label: str | None = None
     day3_label: str | None = None
@@ -37,3 +41,4 @@ class DistrictWarningResponse(BaseModel):
         "PROTOTYPE — sourced from IMD's WFS district_warnings_india layer, "
         "not yet wired into /weather/alerts."
     )
+
