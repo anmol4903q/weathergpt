@@ -1,17 +1,3 @@
-"""
-Phase 8 Step 3B — PROTOTYPE. IMD district-level warnings via their public
-GeoServer WFS layer (imd:district_warnings_india), returned as JSONP.
-
-This is intentionally a SEPARATE module from alert_service.py. It does not
-touch, import from, or get imported by the existing CAP-feed-based
-/weather/alerts implementation. Nothing here is wired into that endpoint.
-
-Known limitation, stated rather than hidden: this endpoint's live behavior
-has not been verified against a real server response — only against the
-documented schema and one historical example found via search. The first
-real call against this code should be treated as the actual verification,
-not a formality.
-"""
 
 import json
 import re
@@ -175,3 +161,4 @@ async def find_district_warning(lat: float, lon: float) -> dict | None:
             return _build_warning_info(feature)
 
     return None
+
