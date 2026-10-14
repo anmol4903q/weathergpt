@@ -4,7 +4,7 @@
 ```
 cd backend
 python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+source venv/bin/activate        # Windows: venv\Scripts\activatee
 pip install -r requirements.txt
 cp .env.example .env
 uvicorn app.main:app --reload
